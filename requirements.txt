@@ -1,11 +1,10 @@
 fastapi
-uvicorn[standard]
-python-dotenv
+uvicorn
 langchain
 langchain-community
 langchain-experimental
 langchain-together
-langchain-huggingface
-sentence-transformers
 chromadb
+sentence-transformers
 psycopg2-binary
+python-dotenv

@@ -9,21 +9,23 @@ from langchain.prompts import PromptTemplate
 from langchain.chains.sql_database.prompt import PROMPT_SUFFIX
 from langchain_together import Together
 from few_shots import few_shots  # Import few_shots directly if needed
- 
+
 # Load environment variables
 load_dotenv()
- 
+
 # PostgreSQL credentials
-DB_USER = "postgres"
-DB_PASSWORD = "root"
-DB_HOST = "localhost"
-DB_NAME = "inventory"
-DB_PORT = 5432
- 
+# New, Render-ready
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
+DB_PORT = os.getenv("DB_PORT")  # Default to 5432 if not set
+
+
 # Model and Embeddings
 LLM_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 EMBEDDINGS_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
- 
+
 # PostgreSQL connection URI
 try:
     db = SQLDatabase.from_uri(
@@ -34,7 +36,7 @@ try:
 except Exception as e:
     print(f"❌ Database connection error: {e}")
     db = None
- 
+
 # Initialize LLM
 llm = Together(
     model=LLM_MODEL,
@@ -42,10 +44,10 @@ llm = Together(
     max_tokens=500,
     together_api_key=os.getenv("TOGETHER_API_KEY"),
 )
- 
+
 # Embeddings
 embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL)
- 
+
 # Vectorstore Setup
 vector_texts = [" ".join(str(value) for value in example.values()) for example in few_shots]
 vectorstore = Chroma.from_texts(
@@ -56,35 +58,35 @@ vectorstore = Chroma.from_texts(
 )
 vectorstore.persist()
 print("✅ Chroma Vectorstore Initialized and Persisted")
- 
+
 # Example selector
 example_selector = SemanticSimilarityExampleSelector(
     vectorstore=vectorstore,
     k=2
 )
- 
+
 # Prompt Setup
 postgres_prompt = """You are a PostgreSQL expert. Given an input question, write a syntactically correct SQL query to run, then return the result.
- 
+
 Instructions:
 - Never use SELECT *.
 - Use only necessary columns.
 - Use LIMIT {top_k} where applicable.
 - Avoid filtering by `report_date` unless the question explicitly mentions a date or time frame (e.g., "today", "last week", "on April 1st").
- 
+
 Schema relationships:
 - Most tables reference `plant_id`, but the plant name is in the `plants` table. To filter by plant name, JOIN the target table with `plants` using `target_table.plant_id = plants.plant_id`.
 - Similarly, most mill-level tables only have `mill_id`, and the mill name is in the `mills` table. JOIN using `target_table.mill_id = mills.mill_id`.
 - Always infer joins based on whether plant_name or mill_name is referenced in the question.
- 
+
 Do not use aliases unless necessary. Focus on correctness and clarity."""
- 
+
 # Few-shot prompt template
 example_prompt = PromptTemplate(
     input_variables=["Question", "SQLQuery", "SQLResult", "Answer"],
     template="\nQuestion: {Question}\nSQLQuery: {SQLQuery}\nSQLResult: {SQLResult}\nAnswer: {Answer}",
 )
- 
+
 few_shot_prompt = FewShotPromptTemplate(
     example_selector=example_selector,
     example_prompt=example_prompt,
@@ -92,7 +94,7 @@ few_shot_prompt = FewShotPromptTemplate(
     suffix=PROMPT_SUFFIX,
     input_variables=["input", "table_info", "top_k"],
 )
- 
+
 # Chain setup
 def get_few_shot_db_chain():
     try:
@@ -110,11 +112,11 @@ def get_few_shot_db_chain():
     except Exception as e:
         print(f"❌ Error initializing SQLDatabaseChain: {e}")
         return None
- 
+
 # Optional session reset
 def reset_session_state():
     print("✅ Resetting session state...")
- 
+
 # Query processor
 def process_query(query):
     print(f"🔍 Processing query: {query}")  # Debugging line to verify query is passed correctly
@@ -134,4 +136,3 @@ def process_query(query):
         result = "❌ Failed to initialize the chain."
     reset_session_state()
     return result
- 

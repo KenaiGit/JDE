@@ -60,4 +60,3 @@ few_shots = [
         "Answer": "There are 18 units of 'Laptop 14\" i7 Gen10' available in stock."
     }
 ]
- 
