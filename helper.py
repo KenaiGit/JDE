@@ -70,16 +70,17 @@ postgres_prompt = """You are a PostgreSQL expert. Given an input question, write
 
 Instructions:
 - Never use SELECT *.
-- Use only necessary columns.
-- Use LIMIT {top_k} where applicable.
-- Avoid filtering by `report_date` unless the question explicitly mentions a date or time frame (e.g., "today", "last week", "on April 1st").
+- Only include the columns necessary to answer the question.
+- Use LIMIT {top_k} where it makes sense.
+- Avoid filtering by date unless the question explicitly mentions a time frame (e.g., "today", "last week", "on April 1st").
+- Focus on clarity and correctness.
+- Do not use aliases unless they improve readability or are required.
 
-Schema relationships:
-- Most tables reference `plant_id`, but the plant name is in the `plants` table. To filter by plant name, JOIN the target table with `plants` using `target_table.plant_id = plants.plant_id`.
-- Similarly, most mill-level tables only have `mill_id`, and the mill name is in the `mills` table. JOIN using `target_table.mill_id = mills.mill_id`.
-- Always infer joins based on whether plant_name or mill_name is referenced in the question.
+Table information:
+- All data resides in a single table. Use column names directly.
+- Infer filter conditions and sort order based on the user's natural language question.
+"""
 
-Do not use aliases unless necessary. Focus on correctness and clarity."""
 
 # Few-shot prompt template
 example_prompt = PromptTemplate(
