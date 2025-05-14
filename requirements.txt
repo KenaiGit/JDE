@@ -1,16 +1,19 @@
-fastapi
-uvicorn[standard]
-python-dotenv
-langchain
-langchain-community
-langchain-experimental
-langchain-together
-langchain-huggingface
-sentence-transformers
-chromadb
-psycopg2-binary
-tiktoken
-openai  # Optional - remove if not used
-transformers  # For HF models
-torch  # Required for most HF transformers
-accelerate  # For optimizing HuggingFace inference
+fastapi==0.110.1
+uvicorn[standard]==0.29.0
+python-dotenv==1.0.1
+psycopg2-binary==2.9.9
+
+# LangChain core
+langchain==0.1.16
+langchain-community==0.0.36
+langchain-experimental==0.0.57
+langchain-together==0.0.2
+
+# Vectorstore and Embeddings
+chromadb==0.4.24
+huggingface-hub==0.22.2
+sentence-transformers==2.7.0
+
+# Optional: Reduce memory for sentence-transformers
+transformers==4.39.3
+torch==2.2.2

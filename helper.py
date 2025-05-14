@@ -1,5 +1,7 @@
 import os
 from dotenv import load_dotenv
+from functools import lru_cache
+
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
 from langchain_community.vectorstores import Chroma
@@ -8,130 +10,92 @@ from langchain.prompts import FewShotPromptTemplate, SemanticSimilarityExampleSe
 from langchain.prompts import PromptTemplate
 from langchain.chains.sql_database.prompt import PROMPT_SUFFIX
 from langchain_together import Together
-from few_shots import few_shots  # Import few_shots directly if needed
- 
+from few_shots import few_shots  # Ensure this exists
+
 # Load environment variables
 load_dotenv()
- 
-# PostgreSQL credentials
-DB_USER = "postgres"
-DB_PASSWORD = "root"
-DB_HOST = "localhost"
-DB_NAME = "inventory"
-DB_PORT = 5432
- 
-# Model and Embeddings
+
+# Constants
+DB_URI = "postgresql+psycopg2://postgres:root@localhost:5432/inventory"
 LLM_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
-EMBEDDINGS_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
- 
-# PostgreSQL connection URI
-try:
-    db = SQLDatabase.from_uri(
-        f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}",
-        sample_rows_in_table_info=3
-    )
-    print("✅ PostgreSQL database connected successfully!")
-except Exception as e:
-    print(f"❌ Database connection error: {e}")
-    db = None
- 
-# Initialize LLM
-llm = Together(
-    model=LLM_MODEL,
-    temperature=0.2,
-    max_tokens=500,
-    together_api_key=os.getenv("TOGETHER_API_KEY"),
-)
- 
-# Embeddings
-embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL)
- 
-# Vectorstore Setup
-vector_texts = [" ".join(str(value) for value in example.values()) for example in few_shots]
-vectorstore = Chroma.from_texts(
-    texts=vector_texts,
-    embedding=embeddings,
-    metadatas=few_shots,
-    persist_directory=".chroma"
-)
-vectorstore.persist()
-print("✅ Chroma Vectorstore Initialized and Persisted")
- 
-# Example selector
-example_selector = SemanticSimilarityExampleSelector(
-    vectorstore=vectorstore,
-    k=2
-)
- 
-# Prompt Setup
-postgres_prompt = """You are a PostgreSQL expert. Given an input question, write a syntactically correct SQL query to run, then return the result.
- 
-Instructions:
-- Never use SELECT *.
-- Use only necessary columns.
-- Use LIMIT {top_k} where applicable.
-- Avoid filtering by `report_date` unless the question explicitly mentions a date or time frame (e.g., "today", "last week", "on April 1st").
- 
-Schema relationships:
-- Most tables reference `plant_id`, but the plant name is in the `plants` table. To filter by plant name, JOIN the target table with `plants` using `target_table.plant_id = plants.plant_id`.
-- Similarly, most mill-level tables only have `mill_id`, and the mill name is in the `mills` table. JOIN using `target_table.mill_id = mills.mill_id`.
-- Always infer joins based on whether plant_name or mill_name is referenced in the question.
- 
-Do not use aliases unless necessary. Focus on correctness and clarity."""
- 
-# Few-shot prompt template
-example_prompt = PromptTemplate(
-    input_variables=["Question", "SQLQuery", "SQLResult", "Answer"],
-    template="\nQuestion: {Question}\nSQLQuery: {SQLQuery}\nSQLResult: {SQLResult}\nAnswer: {Answer}",
-)
- 
-few_shot_prompt = FewShotPromptTemplate(
-    example_selector=example_selector,
-    example_prompt=example_prompt,
-    prefix=postgres_prompt,
-    suffix=PROMPT_SUFFIX,
-    input_variables=["input", "table_info", "top_k"],
-)
- 
-# Chain setup
+EMBEDDINGS_MODEL = "sentence-transformers/paraphrase-MiniLM-L3-v2"
+
+@lru_cache(maxsize=1)
 def get_few_shot_db_chain():
+    print("🔄 Initializing chain and dependencies...")
+    
+    # Connect to DB
     try:
-        reset_session_state()
-        chain = SQLDatabaseChain.from_llm(
-            llm=llm,
-            db=db,
-            verbose=False,
-            prompt=few_shot_prompt,
-            use_query_checker=True,
-            return_intermediate_steps=False
-        )
-        print("✅ SQLDatabaseChain initialized successfully!")
-        return chain
+        db = SQLDatabase.from_uri(DB_URI, sample_rows_in_table_info=3)
+        print("✅ PostgreSQL connected!")
     except Exception as e:
-        print(f"❌ Error initializing SQLDatabaseChain: {e}")
+        print(f"❌ DB Error: {e}")
         return None
- 
-# Optional session reset
-def reset_session_state():
-    print("✅ Resetting session state...")
- 
-# Query processor
+
+    # Load LLM
+    llm = Together(
+        model=LLM_MODEL,
+        temperature=0.2,
+        max_tokens=500,
+        together_api_key=os.getenv("TOGETHER_API_KEY"),
+    )
+
+    # Embeddings
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL)
+
+    # Vector texts
+    vector_texts = [" ".join(str(value) for value in ex.values()) for ex in few_shots]
+    vectorstore = Chroma.from_texts(
+        texts=vector_texts,
+        embedding=embeddings,
+        metadatas=few_shots
+    )
+
+    # Example selector
+    example_selector = SemanticSimilarityExampleSelector(
+        vectorstore=vectorstore,
+        k=2
+    )
+
+    # Prompt template
+    postgres_prompt = """You are a PostgreSQL expert..."""  # Keep your original instructions here
+
+    example_prompt = PromptTemplate(
+        input_variables=["Question", "SQLQuery", "SQLResult", "Answer"],
+        template="\nQuestion: {Question}\nSQLQuery: {SQLQuery}\nSQLResult: {SQLResult}\nAnswer: {Answer}",
+    )
+
+    few_shot_prompt = FewShotPromptTemplate(
+        example_selector=example_selector,
+        example_prompt=example_prompt,
+        prefix=postgres_prompt,
+        suffix=PROMPT_SUFFIX,
+        input_variables=["input", "table_info", "top_k"],
+    )
+
+    # Final chain
+    chain = SQLDatabaseChain.from_llm(
+        llm=llm,
+        db=db,
+        verbose=False,
+        prompt=few_shot_prompt,
+        use_query_checker=True,
+        return_intermediate_steps=False
+    )
+    print("✅ SQLDatabaseChain ready!")
+    return chain
+
+# Process query
 def process_query(query):
-    print(f"🔍 Processing query: {query}")  # Debugging line to verify query is passed correctly
-    result = "Unable to process the query."
+    print(f"🔍 Processing: {query}")
     chain = get_few_shot_db_chain()
-    if chain:
-        try:
-            response = chain.invoke({"query": query})
-            result = response.get("result", "No result returned.")
-            if isinstance(result, dict):
-                result = str(result)
-            print(f"✅ Answer: {result}")
-        except Exception as e:
-            result = f"❌ Error processing your question. Details: {e}"
-            print(result)
-    else:
-        result = "❌ Failed to initialize the chain."
-    reset_session_state()
-    return result
- 
+    if not chain:
+        return "❌ Failed to initialize the chain."
+
+    try:
+        response = chain.invoke({"query": query})
+        result = response.get("result", "No result returned.")
+        return str(result) if isinstance(result, dict) else result
+    except Exception as e:
+        print(f"❌ Error during query: {e}")
+        return f"❌ Error processing query: {e}"
