@@ -1,21 +1,12 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import uvicorn
-from helper import process_query  # Importing your existing query processing function
-
-# Initialize FastAPI app
-app = FastAPI()
-
-# Request body structure
-class QueryRequest(BaseModel):
-    query: str
-
-# POST endpoint to handle user queries
 from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel
 import uvicorn
 from helper import process_query  # Your chatbot logic
 
 app = FastAPI()
+
+class QueryRequest(BaseModel):
+    query: str
 
 @app.post("/query/")
 async def query_product(request: Request):
@@ -39,4 +30,7 @@ async def query_product(request: Request):
 async def health_check():
     return {"status": "healthy"}
 
-
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
