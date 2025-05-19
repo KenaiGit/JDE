@@ -26,6 +26,10 @@ async def query_product(request: Request):
 @app.get("/health/")
 async def health_check():
     return {"status": "healthy"}
+@app.get("/")
+async def root():
+    return {"message": "API is alive and kicking!"}
+
 
 # Entrypoint for Render
 if __name__ == "__main__":
