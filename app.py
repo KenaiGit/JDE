@@ -14,14 +14,21 @@ async def query_product(request: Request):
         body = await request.json()
         query = body.get("query")
 
+        print("📥 Received request body:", body)  # DEBUG LOG
         if not query:
+            print("⚠️ Missing 'query' in request body")
             raise HTTPException(status_code=400, detail="Missing 'query' in request body.")
 
+        print("🔍 Processing query:", query)
         result = process_query(query)
+        print("✅ Query result:", result)
+
         return {"status": "success", "result": result}
 
     except Exception as e:
+        print("❌ Error occurred:", str(e))  # DEBUG LOG
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/health/")
 async def health_check():
