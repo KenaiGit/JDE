@@ -28,6 +28,10 @@ async def query_product(request: Request):
 @app.get("/health/")
 async def health_check():
     return {"status": "healthy"}
+@app.get("/")
+async def root():
+    return {"message": "Welcome to the Query API! Try /query/ or /health/"}
+
 
 
 if __name__ == "__main__":
