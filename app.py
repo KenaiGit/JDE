@@ -1,6 +1,6 @@
 import os
 from fastapi import FastAPI, HTTPException, Request
-import helper
+
 app = FastAPI()
 
 @app.post("/query/")
@@ -34,8 +34,8 @@ async def root():
 
 
 
-if __name__ == "__main__":
+'''if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
-
+'''
