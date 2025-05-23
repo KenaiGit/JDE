@@ -10,7 +10,7 @@ from langchain_together import Together
 from few_shots import few_shots  # Import your few-shot examples
 
 # Load environment variables immediately
-load_dotenv("/etc/secrets/.env")
+#load_dotenv("/etc/secrets/.env")
 
 # Config / Credentials
 DB_USER = os.getenv("DB_USER")
