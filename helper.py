@@ -1,4 +1,5 @@
 import os
+from urllib.parse import quote_plus
 from dotenv import load_dotenv
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
@@ -10,7 +11,7 @@ from langchain_together import Together
 from few_shots import few_shots  # Import your few-shot examples
 
 # Load environment variables immediately
-#load_dotenv("/etc/secrets/.env")
+load_dotenv()
 
 # Config / Credentials
 DB_USER = os.getenv("DB_USER")
@@ -19,18 +20,28 @@ DB_HOST = os.getenv("DB_HOST")
 DB_NAME = os.getenv("DB_NAME")
 DB_PORT = os.getenv("DB_PORT")
 
+print(f"DB_USER={DB_USER}, DB_PASSWORD={'***' if DB_PASSWORD else None}, DB_HOST={DB_HOST}, DB_NAME={DB_NAME}, DB_PORT={DB_PORT}")
+
 LLM_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 EMBEDDINGS_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
-# ======= STARTUP INITIALIZATION =======
+# URL-encode username and password to handle special characters safely
+safe_user = quote_plus(DB_USER)
+safe_password = quote_plus(DB_PASSWORD)
+
+# Build the DB URI — include port only if it's set
+if DB_PORT and DB_PORT.strip():
+    db_uri = f"mysql+pymysql://{safe_user}:{safe_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+else:
+    db_uri = f"mysql+pymysql://{safe_user}:{safe_password}@{DB_HOST}/{DB_NAME}"
 
 try:
     db = SQLDatabase.from_uri(
-        f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}",
+        db_uri,
         sample_rows_in_table_info=3
     )
-    print("✅ PostgreSQL database connected successfully!")
+    print("✅ MySQL database connected successfully!")
 except Exception as e:
     print(f"❌ Database connection error at startup: {e}")
     raise RuntimeError("Stopping app startup due to DB connection failure.")
@@ -89,8 +100,6 @@ few_shot_prompt = FewShotPromptTemplate(
 
 print("✅ Prompt template and example selector initialized.")
 
-# ======= FUNCTION TO CREATE CHAIN =======
-
 def get_few_shot_db_chain():
     try:
         reset_session_state()
@@ -108,11 +117,9 @@ def get_few_shot_db_chain():
         print(f"❌ Error initializing SQLDatabaseChain: {e}")
         return None
 
-# ======= SESSION RESET (optional) =======
 def reset_session_state():
     print("✅ Resetting session state...")
 
-# ======= QUERY PROCESSOR =======
 def process_query(query: str):
     print(f"🔍 Processing query: {query}")
     chain = get_few_shot_db_chain()
